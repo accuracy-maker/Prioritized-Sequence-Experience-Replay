@@ -1,12 +1,14 @@
-# Prioritized-Sequence-Experience-Replay
+# The ‘sum-tree’ data structure used here is very similar in spirit to the array representation
+# of a binary heap. However, instead of the usual heap property, the value of a parent node is
+# the sum of its children. Leaf nodes store the transition priorities and the internal nodes are
+# intermediate sums, with the parent node containing the sum over all priorities, p_total. This
+# provides a efficient way of calculating the cumulative sum of priorities, allowing O(log N) updates
+# and sampling. (Appendix B.2.1, Proportional prioritization)
 
-My implementation of Prioritized Sequence Experience Replay. The paper link is: https://arxiv.org/pdf/1905.12726.pdf
+# Additional useful links
+# Good tutorial about SumTree data structure:  https://adventuresinmachinelearning.com/sumtree-introduction-python/
+# How to represent full binary tree as array: https://stackoverflow.com/questions/8256222/binary-tree-represented-using-array
 
-## Data Structure: SumTree
-
-I learnt this data structure from: http://www.sefidian.com/2022/11/09/sumtree-data-structure-for-prioritized-experience-replay-per-explained-with-python-code/
-
-```
 class SumTree:
     def __init__(self, size):
         self.nodes = [0] * (2 * size - 1)
@@ -61,13 +63,7 @@ class SumTree:
 
     def __repr__(self):
         return f"SumTree(nodes={self.nodes.__repr__()}, data={self.data.__repr__()})"
-```
 
-The provided code defines a Python class called `SumTree`, which is a specialized data structure for efficiently handling a specific set of operations, mainly related to managing a cumulative sum of priorities.
-
-I generated some test codes to test the class:
-
-```
 
 # Test the sum tree 
 if __name__ == '__main__':
@@ -106,42 +102,3 @@ if __name__ == '__main__':
         idx, node_value, data = tree.get(cumsum)
         print(f"Cumulative Sum: {cumsum} -> Retrieved: {data} with Priority: {node_value}")
         print()
-```
-
-Here is the outputs:
-
-```
-
-Adding data to the tree...
-Tree Total: 1
-Tree Nodes: [1, 1, 0, 0, 1, 0, 0, 0, 0]
-Tree Data: ['Data-0', None, None, None, None]
-
-Tree Total: 3
-Tree Nodes: [3, 1, 2, 0, 1, 2, 0, 0, 0]
-Tree Data: ['Data-0', 'Data-1', None, None, None]
-
-Tree Total: 6
-Tree Nodes: [6, 1, 5, 0, 1, 2, 3, 0, 0]
-Tree Data: ['Data-0', 'Data-1', 'Data-2', None, None]
-
-Tree Total: 10
-Tree Nodes: [10, 5, 5, 4, 1, 2, 3, 4, 0]
-Tree Data: ['Data-0', 'Data-1', 'Data-2', 'Data-3', None]
-
-Tree Total: 15
-Tree Nodes: [15, 10, 5, 9, 1, 2, 3, 4, 5]
-Tree Data: ['Data-0', 'Data-1', 'Data-2', 'Data-3', 'Data-4']
-
-Updating priority...
-Tree Total: 22
-Tree Nodes: [22, 10, 12, 9, 1, 2, 10, 4, 5]
-Tree Data: ['Data-0', 'Data-1', 'Data-2', 'Data-3', 'Data-4']
-
-Retrieving data based on cumulative sum...
-Cumulative Sum: 5 -> Retrieved: Data-4 with Priority: 5
-
-Cumulative Sum: 15 -> Retrieved: Data-2 with Priority: 10
-
-Cumulative Sum: 20 -> Retrieved: Data-2 with Priority: 10
-```
