@@ -7,12 +7,13 @@ import random
 from sumtree import SumTree  # Assuming this is your SumTree implementation
 
 class PrioritizedSequenceReplayBuffer:
-    def __init__(self, state_size, action_size, buffer_size, sequence_length, batch_size, decay_rate, eps=1e-5, alpha=0.6, beta=0.4):
+    def __init__(self, state_size, action_size, buffer_size, sequence_length, decay_rate, device, eps=1e-5, alpha=0.6, beta=0.4):
         self.tree = SumTree(buffer_size)
         self.buffer_size = buffer_size
         self.sequence_length = sequence_length
         self.batch_size = batch_size
         self.decay_rate = decay_rate
+        self.device = device
         self.eps = eps
         self.alpha = alpha
         self.beta = beta
@@ -20,7 +21,7 @@ class PrioritizedSequenceReplayBuffer:
 
         # Initialize buffer components
         self.states = np.zeros((buffer_size, state_size), dtype=np.float32)
-        self.actions = np.zeros(buffer_size, dtype=np.int32)
+        self.actions = np.zeros((buffer_size, action_size), dtype=np.int32)
         self.rewards = np.zeros(buffer_size, dtype=np.float32)
         self.next_states = np.zeros((buffer_size, state_size), dtype=np.float32)
         self.dones = np.zeros(buffer_size, dtype=np.uint8)
@@ -60,12 +61,12 @@ class PrioritizedSequenceReplayBuffer:
         
     
     
-    def sample(self):
+    def sample(self,batch_size):
         batch_indices = []
         priorities = []
         segment = self.tree.total / self.batch_size
 
-        for i in range(self.batch_size):
+        for i in range(batch_size):
             a = segment * i
             b = segment * (i + 1)
             value = random.uniform(a, b)
@@ -114,7 +115,13 @@ class PrioritizedSequenceReplayBuffer:
         next_states = np.array(next_states)
         dones = np.array(dones)
 
-        return states, actions, rewards, next_states, dones, is_weights, batch_indices
+        batch = (torch.as_tensor(states).to(self.device),
+                 torch.as_tensor(actions).to(self.device),
+                 torch.as_tensor(rewards).to(self.device),
+                 torch.as_tensor(next_states).to(self.device),
+                 torch.as_tensor(dones).to(self.device))
+        
+        return batch, is_weights, batch_indices
 
     def update_priorities(self, batch_indices, errors):
         for idx, error in zip(batch_indices, errors):
