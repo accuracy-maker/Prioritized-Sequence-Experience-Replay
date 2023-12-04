@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,6 +10,9 @@ from PrioritizedReplayBuffer import PrioritizedReplayBuffer
 from PESR import PrioritizedSequenceReplayBuffer
 from DQN import DQN
 import matplotlib.pyplot as plt
+import tensorboard
+from torch.utils.tensorboard import SummaryWriter
+
 
 def evaluate_policy(env_name, agent, episodes, epi, seed=0):
     env = gym.make(env_name)
@@ -29,10 +33,13 @@ def evaluate_policy(env_name, agent, episodes, epi, seed=0):
     return np.mean(returns), np.std(returns)
 
 
-def train(env_name, model, buffer, device, timesteps=200_000, batch_size=128,
+def train(env_name, model, buffer, device, log_dir,timesteps=200_000, batch_size=128,
           eps_max=0.1, eps_min=0.0, test_every=5000, seed=0):
     print(f'Training on: {env_name}, Device: {device}, Seed: {seed}')
 
+    
+    writer = SummaryWriter(log_dir)
+    
     env = gym.make(env_name)
 
 
@@ -96,6 +103,7 @@ def train(env_name, model, buffer, device, timesteps=200_000, batch_size=128,
                     model.save()
 
                 rewards_total.append(mean)
+                writer.add_scalar('reward',mean,episode)
                 stds_total.append(std)
 
     return np.array(rewards_total), np.array(stds_total)
@@ -115,7 +123,6 @@ def run_experiment(config, use_priority=False, n_seeds=10):
         seed_reward, seed_std = train(seed=seed, model=model, buffer=buffer, **config["train"])
         print(f'Reward: {seed_reward}, Std: {seed_std}')
         mean_rewards.append(seed_reward)
-
     mean_rewards = np.array(mean_rewards)
     return mean_rewards.mean(axis=0), mean_rewards.std(axis=0)
 
@@ -138,7 +145,7 @@ if __name__ == '__main__':
         "buffer":{
             "state_size": env.observation_space.shape[0],
             "action_size": 1,  # action is discrete
-            "buffer_size": 200_000,
+            "buffer_size": 100_000,
             'device': 'cuda' if torch.cuda.is_available() else 'cpu',
             },
         
@@ -153,6 +160,7 @@ if __name__ == '__main__':
         "train": {
             "env_name": "LunarLander-v2",
             "device": 'cuda' if torch.cuda.is_available() else 'cpu',
+            "log_dir": '/Users/gaohaitao/Prioritized-Sequence-Experience-Replay/logs/PER',
             "timesteps": 100_000,
             "batch_size": 8,
             "test_every":5000,
@@ -160,9 +168,9 @@ if __name__ == '__main__':
             }
         }
 
-    mean_priority_reward, std_priority_reward = run_experiment(config, use_priority=False, n_seeds=1)
+    # mean_priority_reward, std_priority_reward = run_experiment(config, use_priority=False, n_seeds=1)
     p_mean_priority_reward, p_std_priority_reward = run_experiment(config, use_priority=True, n_seeds=1)
-    plt.plot(mean_priority_reward,label='replaybuffer')
-    plt.plot(p_mean_priority_reward,label='PER')
-    plt.legend()
-    plt.show()
+    # plt.plot(mean_priority_reward,label='replaybuffer')
+    # plt.plot(p_mean_priority_reward,label='PER')
+    # plt.legend()
+    # plt.show()
