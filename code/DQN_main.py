@@ -66,6 +66,7 @@ def train(env_name, model, buffer, device, log_dir,timesteps=200_000, batch_size
             action = model.act(state)
 
         next_state, reward, terminated, truncated, _ = env.step(action)
+        writer.add_scalar("step reward",reward,step)
         done = terminated or truncated
         buffer.add((state, action, reward, next_state, int(done)))
 
@@ -75,15 +76,16 @@ def train(env_name, model, buffer, device, log_dir,timesteps=200_000, batch_size
             if isinstance(buffer, ReplayBuffer):
                 batch = buffer.sample(batch_size)
                 loss, td_error = model.update(batch)
+                
             elif isinstance(buffer, PrioritizedReplayBuffer):
                 batch, weights, tree_idxs = buffer.sample(batch_size)
-                loss, td_error = model.update(batch, weights=weights)
+                loss, td_error = model.update(batch, weights=weights,buffer='PER')
 
                 buffer.update_priorities(tree_idxs, td_error.numpy())
             
             elif isinstance(buffer,PrioritizedSequenceReplayBuffer):
                 batch, is_weights, batch_indices = buffer.sample(batch_size)
-                loss,td_error = model.update(batch,weights=is_weights)
+                loss,td_error = model.update(batch,weights=is_weights,buffer='PESR')
                 buffer.update_priorities(batch_indices,td_error.numpy())
             
             else:
@@ -103,18 +105,22 @@ def train(env_name, model, buffer, device, log_dir,timesteps=200_000, batch_size
                     model.save()
 
                 rewards_total.append(mean)
-                writer.add_scalar('reward',mean,episode)
+                writer.add_scalar('episode reward',mean,episode)
                 stds_total.append(std)
 
     return np.array(rewards_total), np.array(stds_total)
 
 
-def run_experiment(config, use_priority=False, n_seeds=10):
+def run_experiment(config, use_priority=0, n_seeds=10):
     torch.manual_seed(0)
     mean_rewards = []
 
     for seed in range(n_seeds):
-        if use_priority:
+        
+        if use_priority == 2:
+            buffer = PrioritizedSequenceReplayBuffer(**config["PESR"])
+        
+        elif use_priority == 1:
             buffer = PrioritizedReplayBuffer(**config["PER"])
         else:
             buffer = ReplayBuffer(**config["buffer"])
@@ -149,6 +155,18 @@ if __name__ == '__main__':
             'device': 'cuda' if torch.cuda.is_available() else 'cpu',
             },
         
+        "PESR": {
+            "state_size": env.observation_space.shape[0],
+            "action_size": 1,
+            "buffer_size": 100_000,
+            "sequence_length": 5,
+            "decay_rate": 0.4,
+            "device": 'cuda' if torch.cuda.is_available() else 'cpu',
+            "eps": 1e-5,
+            "alpha": 0.6,
+            "beta": 0.4,
+        },
+        
         "model": {
             "state_size": env.observation_space.shape[0],
             "action_size":  env.action_space.n,
@@ -160,16 +178,17 @@ if __name__ == '__main__':
         "train": {
             "env_name": "LunarLander-v2",
             "device": 'cuda' if torch.cuda.is_available() else 'cpu',
-            "log_dir": '/Users/gaohaitao/Prioritized-Sequence-Experience-Replay/logs/PER',
-            "timesteps": 100_000,
-            "batch_size": 8,
+            "log_dir": '/Users/gaohaitao/Prioritized-Sequence-Experience-Replay/logs/PESR',
+            "timesteps": 200_000,
+            "batch_size": 32,
             "test_every":5000,
             "eps_max": 0.5
             }
         }
 
-    # mean_priority_reward, std_priority_reward = run_experiment(config, use_priority=False, n_seeds=1)
-    p_mean_priority_reward, p_std_priority_reward = run_experiment(config, use_priority=True, n_seeds=1)
+    # mean_priority_reward, std_priority_reward = run_experiment(config, use_priority=0, n_seeds=1)
+    # p_mean_priority_reward, p_std_priority_reward = run_experiment(config, use_priority=1, n_seeds=1)
+    ps_mean_priority_reward, ps_std_priority_reward = run_experiment(config, use_priority=2, n_seeds=1)
     # plt.plot(mean_priority_reward,label='replaybuffer')
     # plt.plot(p_mean_priority_reward,label='PER')
     # plt.legend()
