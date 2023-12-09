@@ -121,7 +121,7 @@ if __name__ == '__main__':
     print(f'action space: {env.action_space.n}')
 
     
-    memory = ReplyBuffer(max_size=1000,input_shape=env.observation_space.shape,n_acts=env.action_space.n)
+    memory = ReplayBuffer(max_size=1000,input_shape=env.observation_space.shape,n_acts=env.action_space.n)
     for i in tqdm(range(100)):
         # print(f'Episode: {i+1}')
         obs, _ = env.reset()
