@@ -30,7 +30,7 @@ class DQN(nn.Module):
             action = torch.argmax(self.model(state)).cpu().numpy().item()
         return action
     
-    def update(self,batch,weights=None,buffer=None):
+    def update(self,batch,weights=None):
         states, actions, rewards, next_states, dones = batch
         # states = torch.tensor(states, dtype=torch.float32, device=self.model.device)
         # actions = torch.tensor(actions, dtype=torch.long, device=self.model.device)  # Assuming actions are long integers
@@ -45,27 +45,27 @@ class DQN(nn.Module):
         # Q_next = self.target_model(next_states).max(dim=1)[0]
         # Q_target = rewards + self.gamma * (1 - dones) * Q_next
         
-        if buffer == None or buffer == 'PER':
-            Q_next = self.target_model(next_states).max(dim=1).values
-            Q_target = rewards + self.gamma * (1 - dones) * Q_next
-            Q = self.model(states)[torch.arange(len(actions)), actions.to(torch.long).flatten()]
-        else:
-            batch_size, seq_len, state_dim = next_states.shape
-            next_states_flat = next_states.view(batch_size * seq_len, state_dim)
-            states_flat = states.view(batch_size * seq_len, state_dim)
+        # if buffer == None or buffer == 'PER':
+        Q_next = self.target_model(next_states).max(dim=1).values
+        Q_target = rewards + self.gamma * (1 - dones) * Q_next
+        Q = self.model(states)[torch.arange(len(actions)), actions.to(torch.long).flatten()]
+        # else:
+        #     batch_size, seq_len, state_dim = next_states.shape
+        #     next_states_flat = next_states.view(batch_size * seq_len, state_dim)
+        #     states_flat = states.view(batch_size * seq_len, state_dim)
             
-            Q_next_flat = self.target_model(next_states_flat).max(dim=1).values
-            Q_next = Q_next_flat.view(batch_size, seq_len)[:, -1]
-            # print(f'Q_next shape: {Q_next.shape}')
-            # print(f'reward shape: {rewards.shape}')
-            # print(f'dones shape: {dones.shape}')
-            last_rewards = rewards[:,-1]
-            last_dones = dones[:,-1]
-            Q_target = last_rewards + self.gamma * (1 - last_dones) * Q_next
-            Q_flat = self.model(states_flat)
-            Q_reshaped = Q_flat.view(batch_size,seq_len,-1)
-            Q = Q_reshaped[:,0,:].max(dim=1).values
-            # Q = Q_flat.view(batch_size, seq_len)[:, 0]
+        #     Q_next_flat = self.target_model(next_states_flat).max(dim=1).values
+        #     Q_next = Q_next_flat.view(batch_size, seq_len)[:, -1]
+        #     # print(f'Q_next shape: {Q_next.shape}')
+        #     # print(f'reward shape: {rewards.shape}')
+        #     # print(f'dones shape: {dones.shape}')
+        #     last_rewards = rewards[:,-1]
+        #     last_dones = dones[:,-1]
+        #     Q_target = last_rewards + self.gamma * (1 - last_dones) * Q_next
+        #     Q_flat = self.model(states_flat)
+        #     Q_reshaped = Q_flat.view(batch_size,seq_len,-1)
+        #     Q = Q_reshaped[:,0,:].max(dim=1).values
+        #     # Q = Q_flat.view(batch_size, seq_len)[:, 0]
         
         
         # Check the shapes of Q and Q_target for debugging purposes

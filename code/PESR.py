@@ -137,7 +137,7 @@ class PrioritizedSequenceReplayBuffer:
         self.eps = eps
         self.alpha = alpha
         self.beta = beta
-        self.max_priority = eps
+        self.max_priority = 1.
 
         # Initialize buffer components
         self.state = torch.empty(buffer_size, state_size, dtype=torch.float)  # Changed to match PrioritizedReplayBuffer
@@ -174,20 +174,19 @@ class PrioritizedSequenceReplayBuffer:
         self.count = (self.count + 1) % self.size
         self.real_size = min(self.size, self.real_size + 1)
 
-        # Apply decay logic only if the tree has been sufficiently populated
-        if self.real_size >= self.sequence_length and self.count >= self.sequence_length:
-            self._apply_decay(self.max_priority)
+        # # Apply decay logic only if the tree has been sufficiently populated
+        # if self.real_size >= self.sequence_length and self.count >= self.sequence_length:
+        #     self._apply_decay(self.max_priority)
 
     def _apply_decay(self, priority):
-        if self.count < self.sequence_length:
-            return
 
         # Apply decay directly without recalculating the new priority against the initial minimum priority
         for i in reversed(range(self.sequence_length)):
             idx = (self.count - i - 1) % self.size
             # tree_idx = idx + self.tree.size - 1 
             decayed_priority = priority * (self.decay_rate ** (i + 1))
-            self.tree.update(idx, decayed_priority)
+            existing_priority = self.tree.get_priority(idx)
+            self.tree.update(idx, max(decayed_priority,existing_priority))
 
 
     def sample(self, batch_size):
@@ -211,37 +210,44 @@ class PrioritizedSequenceReplayBuffer:
         weights = (self.real_size * probs) ** -self.beta
         weights = weights / weights.max()
 
-        # Collecting the sequence of states, actions, rewards, next_states, and dones
-        states, actions, rewards, next_states, dones = [], [], [], [], []
-        for idx in sample_idxs:
-            start_idx = idx
-            end_idx = (start_idx + self.sequence_length) % self.size
+        # # Collecting the sequence of states, actions, rewards, next_states, and dones
+        # states, actions, rewards, next_states, dones = [], [], [], [], []
+        # for idx in sample_idxs:
+        #     start_idx = idx
+        #     end_idx = (start_idx + self.sequence_length) % self.size
 
-            if end_idx < start_idx:  # Handle wraparound
-                state_seq = torch.cat((self.state[start_idx:], self.state[:end_idx]), dim=0)
-                action_seq = torch.cat((self.action[start_idx:], self.action[:end_idx]), dim=0)
-                reward_seq = torch.cat((self.reward[start_idx:], self.reward[:end_idx]), dim=0)
-                next_state_seq = torch.cat((self.next_state[start_idx:], self.next_state[:end_idx]), dim=0)
-                done_seq = torch.cat((self.done[start_idx:], self.done[:end_idx]), dim=0)
-            else:
-                state_seq = self.state[start_idx:end_idx]
-                action_seq = self.action[start_idx:end_idx]
-                reward_seq = self.reward[start_idx:end_idx]
-                next_state_seq = self.next_state[start_idx:end_idx]
-                done_seq = self.done[start_idx:end_idx]
+        #     if end_idx < start_idx:  # Handle wraparound
+        #         state_seq = torch.cat((self.state[start_idx:], self.state[:end_idx]), dim=0)
+        #         action_seq = torch.cat((self.action[start_idx:], self.action[:end_idx]), dim=0)
+        #         reward_seq = torch.cat((self.reward[start_idx:], self.reward[:end_idx]), dim=0)
+        #         next_state_seq = torch.cat((self.next_state[start_idx:], self.next_state[:end_idx]), dim=0)
+        #         done_seq = torch.cat((self.done[start_idx:], self.done[:end_idx]), dim=0)
+        #     else:
+        #         state_seq = self.state[start_idx:end_idx]
+        #         action_seq = self.action[start_idx:end_idx]
+        #         reward_seq = self.reward[start_idx:end_idx]
+        #         next_state_seq = self.next_state[start_idx:end_idx]
+        #         done_seq = self.done[start_idx:end_idx]
 
-            states.append(state_seq)
-            actions.append(action_seq)
-            rewards.append(reward_seq)
-            next_states.append(next_state_seq)
-            dones.append(done_seq)
+        #     states.append(state_seq)
+        #     actions.append(action_seq)
+        #     rewards.append(reward_seq)
+        #     next_states.append(next_state_seq)
+        #     dones.append(done_seq)
 
+        # batch = (
+        #     torch.stack(states).to(self.device),
+        #     torch.stack(actions).to(self.device),
+        #     torch.stack(rewards).to(self.device),
+        #     torch.stack(next_states).to(self.device),
+        #     torch.stack(dones).to(self.device)
+        # )
         batch = (
-            torch.stack(states).to(self.device),
-            torch.stack(actions).to(self.device),
-            torch.stack(rewards).to(self.device),
-            torch.stack(next_states).to(self.device),
-            torch.stack(dones).to(self.device)
+            self.state[sample_idxs].to(self.device),
+            self.action[sample_idxs].to(self.device),
+            self.reward[sample_idxs].to(self.device),
+            self.next_state[sample_idxs].to(self.device),
+            self.done[sample_idxs].to(self.device)
         )
 
         return batch, weights, tree_idxs
@@ -251,10 +257,13 @@ class PrioritizedSequenceReplayBuffer:
             priorities = priorities.detach().cpu().numpy()
 
         for data_idx, priority in zip(data_idxs, priorities):
-            priority = (priority + self.eps) ** self.alpha
+            existing_priority = self.tree.get_priority(data_idx)
+            priority = max(priority + self.eps, existing_priority * self.decay_rate) ** self.alpha
             self.tree.update(data_idx, priority)
             self.max_priority = max(self.max_priority, priority)
 
+        if self.real_size >= self.sequence_length:
+            self._apply_decay(priority)
 
 
 

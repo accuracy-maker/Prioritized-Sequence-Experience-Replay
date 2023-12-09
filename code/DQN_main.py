@@ -79,13 +79,12 @@ def train(env_name, model, buffer, device, log_dir,timesteps=200_000, batch_size
                 
             elif isinstance(buffer, PrioritizedReplayBuffer):
                 batch, weights, tree_idxs = buffer.sample(batch_size)
-                loss, td_error = model.update(batch, weights=weights,buffer='PER')
-
+                loss, td_error = model.update(batch, weights=weights)
                 buffer.update_priorities(tree_idxs, td_error.numpy())
             
             elif isinstance(buffer,PrioritizedSequenceReplayBuffer):
                 batch, is_weights, batch_indices = buffer.sample(batch_size)
-                loss,td_error = model.update(batch,weights=is_weights,buffer='PESR')
+                loss,td_error = model.update(batch,weights=is_weights)
                 buffer.update_priorities(batch_indices,td_error.numpy())
             
             else:

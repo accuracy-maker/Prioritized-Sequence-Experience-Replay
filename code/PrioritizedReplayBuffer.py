@@ -12,7 +12,7 @@ class PrioritizedReplayBuffer:
         self.eps = eps  # minimal priority, prevents zero probabilities
         self.alpha = alpha  # determines how much prioritization is used, α = 0 corresponding to the uniform case
         self.beta = beta  # determines the amount of importance-sampling correction, b = 1 fully compensate for the non-uniform probabilities
-        self.max_priority = eps  # priority for new samples, init as eps
+        self.max_priority = 1.  # priority for new samples, init as eps
 
         # transition: state, action, reward, next_state, done
         self.state = torch.empty(buffer_size, state_size, dtype=torch.float)
