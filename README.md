@@ -4,15 +4,11 @@ My implementation of Prioritized Sequence Experience Replay. The paper link is: 
 
 ## PLOTS
 
-There are output plots: episodes_rewards & step_rewards
+there are output plots: episodes_rewards & step_rewards
 
 ![episodes](images/epi.png)
 
 ![step](images/step.png)
-
-## Run the Code
-
-`python3 DQN_main.py`
 
 ## Data Structure: SumTree
 
